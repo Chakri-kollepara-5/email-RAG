@@ -1,0 +1,22 @@
+[
+  {
+    "original": "This delay is unacceptable. Fix it immediately.",
+    "rewritten": "I’m concerned about the delay and would appreciate your help in resolving it as soon as possible."
+  },
+  {
+    "original": "You made a mistake in my order.",
+    "rewritten": "There seems to be an issue with my order and I’d appreciate it if you could review it."
+  },
+  {
+    "original": "Why can't you people ever respond on time?",
+    "rewritten": "Could you please update me on the status when possible?"
+  },
+  {
+    "original": "This support team is useless.",
+    "rewritten": "I’m finding it difficult to resolve this issue and would appreciate some additional assistance."
+  },
+  {
+    "original": "Give me a refund right now.",
+    "rewritten": "Can you please review my case and let me know if a refund is applicable?"
+  }
+]
