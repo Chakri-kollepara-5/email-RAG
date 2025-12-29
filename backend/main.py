@@ -6,16 +6,14 @@ import torch
 
 app = FastAPI()
 
-# -------- CORS (IMPORTANT FOR STREAMLIT) --------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # restrict later if needed
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -------- LOAD MODELS ON STARTUP --------
 REWRITE_MODEL = "google/flan-t5-large"
 
 tokenizer = AutoTokenizer.from_pretrained(REWRITE_MODEL)
@@ -38,62 +36,66 @@ class EmailRequest(BaseModel):
 
 
 @app.get("/")
-def health_check():
+def health():
     return {"status": "ok"}
 
 
 def analyze_text(text: str):
-    tox = toxicity_pipe(text)[0]
+    tox_scores = toxicity_pipe(text)[0]
+
+    toxic_labels = [
+        "toxic", "insult", "threat",
+        "obscene", "identity_hate", "severe_toxic"
+    ]
+
+    rude = max(
+        [t["score"] for t in tox_scores if t["label"] in toxic_labels] or [0]
+    )
+
     sentimental = sentiment_pipe(text)[0]
 
-    rude_score = sum(t["score"] for t in tox if t["label"] != "neutral")
-    rude_score = min(round(rude_score * 100, 2), 100)
-
     return {
-        "rude_percent": rude_score,
+        "rude_percent": round(rude * 100, 2),
         "sentiment": sentimental["label"],
-        "sentiment_confidence": round(sentimental["score"] * 100, 2),
+        "sentiment_confidence": round(sentimental["score"] * 100, 2)
     }
 
 
 def rewrite_text(email: str):
     prompt = f"""
-Paraphrase the email below so it becomes polite, calm, professional and respectful.
+Rewrite the email to make it polite, calm and professional.
 
-Rules:
-- Keep the meaning the same
-- Fix grammar
-- Remove rude / aggressive tone
-- Do NOT repeat the original words
-- Do NOT add extra information
-- Output ONLY the rewritten email
+RULES:
+• Keep the meaning the same
+• DO NOT reuse the same wording
+• Remove rude or harsh tone
+• Fix grammar
+• Output ONLY the rewritten email
 
-Email:
-{email}
+Examples:
+Harsh: "Fix this issue now"
+Polite: "Could you please help me resolve this issue?"
 
-Polite version:
+Harsh: "This delay is unacceptable. Do your job properly."
+Polite: "I’m concerned about the delay. Could you please look into this when you have a moment?"
+
+Rewrite this email:
+"{email}"
 """
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True).to(device)
 
     outputs = model.generate(
         **inputs,
-        max_new_tokens=80,
-        num_beams=8,
-        do_sample=True,
-        temperature=0.8,
-        top_p=0.9,
+        max_new_tokens=120,
+        num_beams=4,
+        do_sample=False,
         no_repeat_ngram_size=3,
-        repetition_penalty=2.5,
+        repetition_penalty=2.8,
         early_stopping=True
     )
 
-    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-    if "Polite version:" in text:
-        text = text.split("Polite version:")[-1]
-
-    return text.strip()
+    return tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
 
 @app.post("/rewrite")
